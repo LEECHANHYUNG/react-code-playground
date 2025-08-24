@@ -24,13 +24,7 @@ function App() {
   return (
     <div
       ref={containerRef}
-      style={{
-        width: "100vw",
-        height: "100vh",
-        position: "fixed",
-        top: 0,
-        left: 0,
-      }}
+      className="w-screen h-screen fixed top-0 left-0"
     />
   );
 }
