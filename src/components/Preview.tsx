@@ -1,14 +1,16 @@
-import { useRef } from "react";
-
+import { useEffect, useState } from "react";
+import { bundle } from "../utils/bundler";
 interface PreviewProps {
   code: string;
   extraLibs?: string[];
 }
-
 const htmlTemplate = (code: string, extraLibs: string[] = []) => {
   const imports: Record<string, string> = {
+    react: "https://esm.sh/react",
     "react/": "https://esm.sh/react/",
+    "react-dom": "https://esm.sh/react-dom",
     "react-dom/": "https://esm.sh/react-dom/",
+    "@radix-ui/react-switch": "https://esm.sh/@radix-ui/react-switch",
     "@vapor-ui/core": "https://esm.sh/@vapor-ui/core?external=react,react-dom",
   };
 
@@ -51,65 +53,30 @@ const htmlTemplate = (code: string, extraLibs: string[] = []) => {
   </html>`;
 };
 
-function Preview({ code }: { code: string }) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+function Preview({ code }: PreviewProps) {
+  const [srcDoc, setSrcDoc] = useState("");
 
-  const iframeContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Preview</title>
-          <style>
-            body {
-              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-              margin: 0;
-              padding: 16px;
-              background: #1e1e1e;
-              color: #d4d4d4;
-            }
-          </style>
-        </head>
-        <body>
-          <script>
-            (function() {
-              const originalConsole = window.console;
-              const console = {
-                log: (...args) => {
-                  window.parent.postMessage({
-                    type: 'console.log',
-                    args: args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg))
-                  }, '*');
-                },
-                error: (...args) => {
-                  window.parent.postMessage({
-                    type: 'console.error',
-                    args: args.map(arg => String(arg))
-                  }, '*');
-                }
-              };
+  useEffect(() => {
+    const transpileAndRender = async () => {
+      try {
+        const transformed = await bundle(code);
+        const html = htmlTemplate(transformed);
+        setSrcDoc(html);
+      } catch (err) {
+        setSrcDoc(`<pre style="color:red;">${(err as Error).message}</pre>`);
+      }
+    };
 
-              try {
-                ${code}
-              } catch (error) {
-                window.parent.postMessage({
-                  type: 'console.error',
-                  args: [error.message]
-                }, '*');
-              }
-            })();
-          </script>
-        </body>
-      </html>
-    `;
+    transpileAndRender();
+  }, [code]);
 
-  const html = htmlTemplate(code);
   return (
     <iframe
-      ref={iframeRef}
-      className="w-full h-full border-0"
-      title="Code Preview"
+      key={srcDoc} // srcDoc이 바뀔 때마다 새로 렌더링
+      srcDoc={srcDoc}
+      title="preview"
       sandbox="allow-scripts allow-same-origin"
-      srcDoc={html} // srcdoc 속성을 사용하여 iframe 콘텐츠 렌더링
+      style={{ width: "100%", height: "100%", border: "none" }}
     />
   );
 }
